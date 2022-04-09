@@ -5,11 +5,6 @@ import 'package:intl/intl.dart';
 
 //U 32,0,0,128,0,0,0,18765,100,200,300,400,500,600,700,12300,1001,1002
 class DataConvertor {
-  static final q32ResponseRegex = RegExp(r"U[,|\s][0-3][0-9]");
-  static final fuseSaverResponseRegex = RegExp(r"DF[\s]");
-  static final airPressureResponseRegex =
-      RegExp(r"AIR[\s]", caseSensitive: false);
-
   static List<int> encode(String message) {
     message = message.toUpperCase();
     if (message != null && !message.endsWith("\n")) {
@@ -65,51 +60,6 @@ class DataConvertor {
     var formatter = new DateFormat('yyyy-MM-dd_hh:mm:ss:SSS');
     return formatter.format(DateTime.now());
   }
-
-  // static Q32Response? getQ32Response(String message) {
-  //   var match = q32ResponseRegex.firstMatch(message);
-  //   if (match != null) {
-  //     List<String> elemList = <String>[];
-  //     elemList
-  //         .addAll(message.substring(match.end).split(",").map((s) => s.trim()));
-  //     return Q32Response.fromArray(elemList);
-  //   }
-  //   return null;
-  // }
-
-  static bool isValidQ32Response(String message) {
-    return q32ResponseRegex.firstMatch(message) == null ? false : true;
-  }
-
-  // static FuseSaverResponse? getFuseSaverResponse(String message) {
-  //   var match = fuseSaverResponseRegex.firstMatch(message);
-  //   if (match != null) {
-  //     List<String> elemList = <String>[];
-  //     elemList
-  //         .addAll(message.substring(match.end).split(",").map((s) => s.trim()));
-  //     return FuseSaverResponse.fromArray(elemList);
-  //   }
-  //   return null;
-  // }
-
-  static bool isValidFuseSaverResponse(String message) {
-    return fuseSaverResponseRegex.firstMatch(message) == null ? false : true;
-  }
-
-  static bool isValidAirResponse(String message) {
-    return airPressureResponseRegex.firstMatch(message) == null ? false : true;
-  }
-
-  // static AirPressueResponse? getAirPressureResponse(String message) {
-  //   var match = airPressureResponseRegex.firstMatch(message);
-  //   if (match != null) {
-  //     List<String> elemList = <String>[];
-  //     elemList
-  //         .addAll(message.substring(match.end).split(",").map((s) => s.trim()));
-  //     return AirPressueResponse.fromArray(elemList);
-  //   }
-  //   return null;
-  // }
 
   static String convertSubUnitToFullUnit(String? value,
       {int divisor = 1000,
