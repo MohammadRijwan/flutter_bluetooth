@@ -1,41 +1,29 @@
 import 'dart:async';
 import 'dart:math';
 
-import '../flutter_bluetooth.dart';
-import 'IBleService.dart';
-import 'IBlueTooth.dart';
-import 'app_constants.dart';
-import 'ble_characteristic.dart';
-import 'ble_device.dart';
-import 'data_convertor.dart';
+import 'package:flutter/foundation.dart';
 
-class BleUseCase extends IBlueTooth {
+import '../flutter_bluetooth.dart';
+
+class BleUseCase implements IBlueTooth {
   static BleUseCase? _bleUseCaseInstance;
   String message = '';
 
   static BleUseCase? get bleUseCaseInstance {
-    if (_bleUseCaseInstance == null) {
-      _bleUseCaseInstance = BleUseCase._privateConstructor();
-    }
+    _bleUseCaseInstance ??= BleUseCase._privateConstructor();
     return _bleUseCaseInstance;
   }
 
   static IBlueTooth? instance;
 
-  BleUseCase.test() {}
+  BleUseCase.test();
 
-  BleUseCase() {
+  BleUseCase(
+      {required String nameFilter,
+      required int scanDuration,
+      required List<BleDeviceUuids> bleDeviceUuidsList}) {
     listenForBleDeviceState();
-    _ble = nameDurationUuid('IPA', 4, [
-      BleDeviceUuids(
-        serviceUuid: AppConstants.newServiceUuid,
-        characteristicsUuid: AppConstants.newCharacteristicUuid,
-      ),
-      BleDeviceUuids(
-        serviceUuid: AppConstants.serviceUuid,
-        characteristicsUuid: AppConstants.characteristicUuid,
-      ),
-    ]);
+    _ble = nameDurationUuid(nameFilter, scanDuration, bleDeviceUuidsList);
   }
 
   IBlueTooth? _ble;
@@ -47,8 +35,10 @@ class BleUseCase extends IBlueTooth {
       StreamController<String>.broadcast();
 
   StreamSubscription<BleDeviceState>? bleDeviceStateSubscription;
+  @override
   StreamController<BleDeviceState>? bleDeviceStateStream =
       StreamController<BleDeviceState>.broadcast();
+  @override
   StreamController<bool>? isScanningStream = StreamController<bool>.broadcast();
   BleDeviceState bleDeviceState = BleDeviceState.disconnected;
 
@@ -61,25 +51,32 @@ class BleUseCase extends IBlueTooth {
   Future<bool> getConnectionStatus() async {
     final connectedDevices = await _ble!.getAllConnectedDevices();
     _isConnected = connectedDevices.isNotEmpty;
-    print('getConnectionStatus() $isConnected');
+    if (kDebugMode) {
+      print('getConnectionStatus() $isConnected');
+    }
     return _isConnected;
   }
 
   disconnectIPADevices() async {
-    print('ble_usecase disconnectIPADevice()');
+    if (kDebugMode) {
+      print('ble_usecase disconnectIPADevice()');
+    }
     _isStreamingData = false;
     dataSubscription?.cancel();
     dataSubscription = null;
-    print('ble_usecase disconnectIPADevice() dataSub $dataSubscription');
+    if (kDebugMode) {
+      print('ble_usecase disconnectIPADevice() dataSub $dataSubscription');
+    }
     heartbeatTimer?.cancel();
     await bleUseCaseInstance!.disconnectIPADevice();
     _isConnected = !_isConnected;
   }
 
-  writeCommandToBleWithDelayedQuery(String message) async {
+  writeCommandToBleWithDelayedQuery(String message, String command) async {
     await writeCommandToBle(message);
     await Future.delayed(const Duration(milliseconds: 500));
-    writeCommandToBle('Q 18');
+    writeCommandToBle(command);
+    // writeCommandToBle('Q 18');
   }
 
   writeCommandToBle(String message) async {
@@ -107,7 +104,9 @@ class BleUseCase extends IBlueTooth {
         isScanningStream!.add(isScanningNow);
       },
       onDone: () {
-        print(' bluetooth usecase scanresults on done');
+        if (kDebugMode) {
+          print(' bluetooth usecase scanresults on done');
+        }
         scanStatusSubscription?.cancel();
       },
     );
@@ -121,18 +120,24 @@ class BleUseCase extends IBlueTooth {
       if (!_isStreamingData) {
         timer.cancel();
       }
-      print(
-          '${DataConvertor.getDateTimeMillis()} sending query message $message to ble');
+      if (kDebugMode) {
+        print(
+            '${DataConvertor.getDateTimeMillis()} sending query message $message to ble');
+      }
       await writeEncodedCommandToBle(encodedMsg);
     });
   }
 
   listenForBleDeviceState() async {
-    print('ble usecase _listenForBleDeviceState');
+    if (kDebugMode) {
+      print('ble usecase _listenForBleDeviceState');
+    }
     await bleDeviceStateSubscription?.cancel();
     bleDeviceStateSubscription = null;
     final id = Random().nextInt(100);
-    print('meow######$_ble');
+    if (kDebugMode) {
+      print('meow######$_ble');
+    }
     bleDeviceStateSubscription =
         _ble!.bleDeviceStateStream!.stream.listen((data) {
       //print('id:$id bluetoothInteractor data:$data');
@@ -142,23 +147,31 @@ class BleUseCase extends IBlueTooth {
   }
 
   Future<void> listenToData() async {
-    print('bleusecase _listenForBleData');
+    if (kDebugMode) {
+      print('bleusecase _listenForBleData');
+    }
     await dataSubscription?.cancel();
     dataSubscription = null;
     final id = Random().nextInt(100);
     StringBuffer concatenatedMsg = StringBuffer();
     dataSubscription = _ble!.dataStream!.stream.listen((data) {
-      print('id:$id bleusecase bledata:$data');
-      if (data != null && data.isNotEmpty) {
+      if (kDebugMode) {
+        print('id:$id bleusecase bledata:$data');
+      }
+      if (data.isNotEmpty) {
         final utfDecodedData = DataConvertor.decodeUtf8(data)!;
         concatenatedMsg.write(utfDecodedData);
         if (utfDecodedData.contains("\n")) {
           final responseData = concatenatedMsg.toString();
-          print('id:$id bleusecase utfdata:$responseData');
+          if (kDebugMode) {
+            print('id:$id bleusecase utfdata:$responseData');
+          }
           handleBleData(responseData);
           concatenatedMsg.clear();
         } else {
-          print('id:$id bleusecase utfdata:${concatenatedMsg.toString()}');
+          if (kDebugMode) {
+            print('id:$id bleusecase utfdata:${concatenatedMsg.toString()}');
+          }
         }
       }
     });
@@ -180,7 +193,9 @@ class BleUseCase extends IBlueTooth {
   }
 
   void handleBleData(String responseData) {
-    print('ble_usecase  handleBleData');
+    if (kDebugMode) {
+      print('ble_usecase  handleBleData');
+    }
   }
 
   sendPostConnectionMessages() async {}
@@ -205,15 +220,13 @@ class BleUseCase extends IBlueTooth {
 
   nameDurationUuid(String nameFilter, int scanDuration,
       List<BleDeviceUuids> bleDeviceUuidsList) {
-    if (instance == null) {
-      instance = BleUseCase._nameDurationUuid(
-          nameFilter, scanDuration, bleDeviceUuidsList);
-    }
+    instance ??= BleUseCase._nameDurationUuid(
+        nameFilter, scanDuration, bleDeviceUuidsList);
     return instance;
   }
 
-  Map<String, BleDevice> scanItems = Map<String, BleDevice>();
-  Map<String?, String?> connectedDevices = Map<String?, String?>();
+  Map<String, BleDevice> scanItems = <String, BleDevice>{};
+  Map<String?, String?> connectedDevices = <String?, String?>{};
   bool isScanning = false;
   bool isError = false;
   StreamSubscription<Map<String, BleCharacteristic>>?
@@ -232,9 +245,9 @@ class BleUseCase extends IBlueTooth {
   StreamController<BleDeviceState> bleDeviceStateStreams =
   StreamController<BleDeviceState>.broadcast();*/
 
-  @override
   StreamController<bool> isScanningStreams = StreamController<bool>.broadcast();
 
+  @override
   connect(String? deviceId) async {
     await bleService.connect(deviceId);
     _addToConnectedDevices(deviceId);
@@ -242,7 +255,9 @@ class BleUseCase extends IBlueTooth {
   }
 
   _addToConnectedDevices(deviceId) async {
-    print('adding deviceId $deviceId to connected list');
+    if (kDebugMode) {
+      print('adding deviceId $deviceId to connected list');
+    }
     connectedDevices[deviceId] = deviceId;
   }
 
@@ -250,6 +265,7 @@ class BleUseCase extends IBlueTooth {
     await _listenForBleDeviceState();
   }
 
+  @override
   Future<Map<String, String>> initializeConnectedDevices() async {
     return await bleService.getConnectedDevicesMap();
   }
@@ -261,14 +277,19 @@ class BleUseCase extends IBlueTooth {
 
   @override
   disconnectIPADevice() async {
-    print('disconnectIPADevice()');
+    if (kDebugMode) {
+      print('disconnectIPADevice()');
+    }
     final connectedDevices = await getAllConnectedDevices();
     for (String id in connectedDevices.keys) {
-      print('Disconnecting device $id');
+      if (kDebugMode) {
+        print('Disconnecting device $id');
+      }
       await disconnect(id);
     }
   }
 
+  @override
   disconnect(String? deviceId) async {
     await dataSubscription?.cancel();
     dataSubscription = null;
@@ -277,23 +298,30 @@ class BleUseCase extends IBlueTooth {
   }
 
   _removeFromConnectedDevices(deviceId) async {
-    print('removing deviceId $deviceId from connected list');
+    if (kDebugMode) {
+      print('removing deviceId $deviceId from connected list');
+    }
     connectedDevices.remove(deviceId);
   }
 
+  @override
   Future<bool> isDeviceConnected(String deviceId) async {
     return bleService.isDeviceConnected(deviceId);
   }
 
+  @override
   startScan() async {
-    scanItems = Map<String, BleDevice>();
+    scanItems = <String, BleDevice>{};
     await bleService.startScan();
     _listenForScanResults();
     _listenForScanStatus();
   }
 
+  @override
   startScanAndConnectToIpaDevice() async {
-    print("startScanAndConnectToIpaDevice");
+    if (kDebugMode) {
+      print("startScanAndConnectToIpaDevice");
+    }
     await bleService.startScan();
     _listenForBleData();
   }
@@ -301,11 +329,11 @@ class BleUseCase extends IBlueTooth {
   _listenForScanResults() {
     var scanSubscription;
     scanSubscription = bleService.scanResultsStream!.stream.listen((bleDevice) {
-      if (bleDevice != null) {
-        scanResultsStream!.add(bleDevice);
-      }
+      scanResultsStream!.add(bleDevice);
     }, onDone: () {
-      print(' bluetooth manager scanresults on done');
+      if (kDebugMode) {
+        print(' bluetooth manager scanresults on done');
+      }
       scanSubscription?.cancel();
     });
   }
@@ -317,18 +345,23 @@ class BleUseCase extends IBlueTooth {
         isScanningStreams.add(isScanningNow);
       },
       onDone: () {
-        print(' bluetooth manager scanresults on done');
+        if (kDebugMode) {
+          print(' bluetooth manager scanresults on done');
+        }
         scanStatusSubscription?.cancel();
       },
     );
   }
 
+  @override
   stopScan() {
     bleService.stopScan();
   }
 
   _listenForBleData() async {
-    print('bluetooth interactor _listenForBleData');
+    if (kDebugMode) {
+      print('bluetooth interactor _listenForBleData');
+    }
     await dataSubscription?.cancel();
     dataSubscription = null;
     final id = Random().nextInt(100);
@@ -340,7 +373,9 @@ class BleUseCase extends IBlueTooth {
 
   _listenForBleDeviceState() async {
     final id = Random().nextInt(100);
-    print(' $id bluetooth interactor _listenForBleDeviceState');
+    if (kDebugMode) {
+      print(' $id bluetooth interactor _listenForBleDeviceState');
+    }
     await bleDeviceStateSubscriptions?.cancel();
     bleDeviceStateSubscriptions = null;
     bleDeviceStateSubscriptions =
@@ -350,38 +385,52 @@ class BleUseCase extends IBlueTooth {
     });
   }
 
+  @override
   Map<String, BleCharacteristic> getAllBleCharacteristic() {
     return bleService.bleCharacterics;
   }
 
+  @override
   writeToCharacteristics(String? characteristicUuid, String? message) async {
     final _encodedMsg = DataConvertor.encode(message!);
-    print('bluetooth iteractor writeToCharacteristics() message $message');
+    if (kDebugMode) {
+      print('bluetooth iteractor writeToCharacteristics() message $message');
+    }
     await bleService.writeToCharacteristics(characteristicUuid, _encodedMsg);
   }
 
+  @override
   writeToIpaCharacteristics(String message) async {
     final _encodedMsg = DataConvertor.encode(message);
-    print('bluetooth iteractor writeToIpaCharacteristics() message $message');
+    if (kDebugMode) {
+      print('bluetooth iteractor writeToIpaCharacteristics() message $message');
+    }
     await bleService.writeToIpaCharacteristics(_encodedMsg);
   }
 
+  @override
   writeEncodedMessageToCharacteristics(
       String characteristicUuid, List<int> encodedMsg) async {
-    print(
-        'bluetooth iteractor writeEncodedMessageToCharacteristics() message $encodedMsg');
+    if (kDebugMode) {
+      print(
+          'bluetooth iteractor writeEncodedMessageToCharacteristics() message $encodedMsg');
+    }
     await bleService.writeToCharacteristics(characteristicUuid, encodedMsg);
   }
 
+  @override
   Future<String> readCharacteristics(String? characteristicUuid) async {
     final data = await (bleService.readCharacteristics(characteristicUuid)
         as FutureOr<List<int>>);
     return DataConvertor.getUtf8FormattedData(data);
   }
 
+  @override
   writeMessageToMldpCharacteristic(String deviceId, String message) async {
     final _encodedMsg = DataConvertor.encode(message);
-    print('send message $message');
+    if (kDebugMode) {
+      print('send message $message');
+    }
     await bleService.writeValue(_encodedMsg);
   }
 
