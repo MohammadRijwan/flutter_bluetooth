@@ -84,8 +84,7 @@ class BleUseCase implements IBlueTooth {
   }
 
   writeEncodedCommandToBle(List<int> encodedMsg) async {
-    await _ble!.writeEncodedMessageToCharacteristics(
-        AppConstants.characteristicUuid, encodedMsg);
+    await _ble!.writeEncodedMessageToIpaCharacteristics(encodedMsg);
   }
 
   startScanning() async {
@@ -439,5 +438,10 @@ class BleUseCase implements IBlueTooth {
       String? characteristicUuid, bool value) async {
     await bleService.setNotificationForCharacteristic(
         characteristicUuid, value);
+  }
+
+  @override
+  writeEncodedMessageToIpaCharacteristics(List<int> encodedMsg) async {
+    await bleService.writeToIpaCharacteristics(encodedMsg);
   }
 }

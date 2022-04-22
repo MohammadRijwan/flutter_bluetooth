@@ -16,6 +16,7 @@ abstract class IBlueTooth {
   writeToIpaCharacteristics(String message);
   writeEncodedMessageToCharacteristics(
       String characteristicUuid, List<int> encodedMsg);
+  writeEncodedMessageToIpaCharacteristics(List<int> encodedMsg);
   Future<Map<String, String>> getAllConnectedDevices();
   disconnect(String? deviceId);
   Future<bool> isDeviceConnected(String deviceId);
