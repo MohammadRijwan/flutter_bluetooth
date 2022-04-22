@@ -19,11 +19,11 @@ class BleUseCase implements IBlueTooth {
   BleUseCase.test();
 
   BleUseCase(
-      {required String nameFilter,
+      {required RegExp deviceNameRegex,
       required int scanDuration,
       required List<BleDeviceUuids> bleDeviceUuidsList}) {
     listenForBleDeviceState();
-    _ble = nameDurationUuid(nameFilter, scanDuration, bleDeviceUuidsList);
+    _ble = nameDurationUuid(deviceNameRegex, scanDuration, bleDeviceUuidsList);
   }
 
   IBlueTooth? _ble;
@@ -209,19 +209,19 @@ class BleUseCase implements IBlueTooth {
     _initializeListeners();
   }
 
-  BleUseCase._nameDurationUuid(String nameFilter, int scanDuration,
+  BleUseCase._nameDurationUuid(RegExp deviceNameRegex, int scanDuration,
       List<BleDeviceUuids> bleDeviceUuidsList) {
     bleService = FlutterBluetoothService.instance
       ..setUuidsList(bleDeviceUuidsList)
-      ..setNameFilter(nameFilter)
+      ..setDeviceNameRegex(deviceNameRegex)
       ..setScanDuration(scanDuration);
     _initializeListeners();
   }
 
-  nameDurationUuid(String nameFilter, int scanDuration,
+  nameDurationUuid(RegExp deviceNameRegex, int scanDuration,
       List<BleDeviceUuids> bleDeviceUuidsList) {
     instance ??= BleUseCase._nameDurationUuid(
-        nameFilter, scanDuration, bleDeviceUuidsList);
+        deviceNameRegex, scanDuration, bleDeviceUuidsList);
     return instance;
   }
 

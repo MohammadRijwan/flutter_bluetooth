@@ -18,7 +18,7 @@ abstract class IBleService {
   setNotificationForCharacteristic(String? characteristicUuid, bool value);
   setUuidsList(List<BleDeviceUuids> bleDeviceUuidsList);
   setScanDuration(int time);
-  setNameFilter(String nameFilter);
+  setDeviceNameRegex(RegExp nameFilter);
   startScan();
   stopScan();
   connect(String? deviceId);

@@ -17,19 +17,22 @@ class FlutterBluetoothService implements IBleService {
 
   List<Guid> _serviceGuidsList = [];
   Set<String?> _serviceUuidsSet = {};
-  Set<String?> _characteristicUuidsSet = {};
-  String? _nameFilter;
+  Set<String> _readCharacteristicUuidsSet = {};
+  Set<String> _writeCharacteristicUuidsSet = {};
+  RegExp? _deviceNameRegex;
   int? _scanDuration;
 
   @override
   setUuidsList(List<BleDeviceUuids> bleDeviceUuidsList) {
     _serviceGuidsList = [];
     _serviceUuidsSet = {};
-    _characteristicUuidsSet = {};
+    _readCharacteristicUuidsSet = {};
+    _writeCharacteristicUuidsSet = {};
     bleDeviceUuidsList.forEach((bleDeviceUuids) {
       _serviceGuidsList.add(Guid(bleDeviceUuids.serviceUuid!));
       _serviceUuidsSet.add(bleDeviceUuids.serviceUuid);
-      _characteristicUuidsSet.add(bleDeviceUuids.characteristicsUuid);
+      _readCharacteristicUuidsSet.add(bleDeviceUuids.readCharacteristicUuid);
+      _writeCharacteristicUuidsSet.add(bleDeviceUuids.writeCharacteristicUuid);
     });
   }
 
@@ -39,15 +42,16 @@ class FlutterBluetoothService implements IBleService {
   }
 
   @override
-  setNameFilter(String nameFilter) {
-    _nameFilter = nameFilter;
+  setDeviceNameRegex(RegExp deviceNameRegex) {
+    _deviceNameRegex = deviceNameRegex;
   }
 
   FlutterBlue _flutterBlue = FlutterBlue.instance;
   //..setLogLevel(LogLevel.debug);
   StreamSubscription<ScanResult>? scanSubscription;
   StreamSubscription<List<int>>? characteristicValueSub;
-  BluetoothCharacteristic? selectedCharacteristic;
+  BluetoothCharacteristic? selectedReadCharacteristic;
+  BluetoothCharacteristic? selectedWriteCharacteristic;
   StreamSubscription<BluetoothDeviceState>? _bluetoothDeviceStateSub;
 
   @override
@@ -127,8 +131,8 @@ class FlutterBluetoothService implements IBleService {
                 name: scanResult.device.name,
                 rssi: scanResult.rssi);
 
-            if (_nameFilter != null && _nameFilter!.isNotEmpty) {
-              if (scannedDevice.name.contains(_nameFilter!)) {
+            if (_deviceNameRegex != null) {
+              if (_deviceNameRegex!.firstMatch(scannedDevice.name) != null) {
                 if (kDebugMode) {
                   print(
                       'Connecting to IPA Device ${scannedDevice.id} ${scannedDevice.name} found! rssi: ${scanResult.rssi}');
@@ -188,6 +192,7 @@ class FlutterBluetoothService implements IBleService {
       if (_serviceGuidsList.isNotEmpty) {
         await _setServicesAndCharacteristicsMap(device);
         await _setNotification(deviceId);
+        await _setWriteCharacteristicForDeviceId(deviceId);
       } else {
         await _setServicesAndCharacteristicsMap(device);
       }
@@ -329,22 +334,38 @@ class FlutterBluetoothService implements IBleService {
   }
 
   _setNotification(String? deviceId) async {
-    BluetoothCharacteristic c = await (_findCharacteristicForDeviceId(deviceId)
-        as FutureOr<BluetoothCharacteristic>);
+    BluetoothCharacteristic c =
+        await (_findReadCharacteristicForDeviceId(deviceId)
+            as FutureOr<BluetoothCharacteristic>);
     _setCharacteristicNotificationListener(c, true);
   }
 
-  Future<BluetoothCharacteristic?> _findCharacteristicForDeviceId(
+  Future<BluetoothCharacteristic?> _findReadCharacteristicForDeviceId(
       String? deviceId) async {
     final _device = await _findConnectedDeviceForId(deviceId);
     final _selectedService =
         await (_findUuidMatchingService(_device) as FutureOr<BluetoothService>);
-    selectedCharacteristic = _findUuidMatchingCharacteristic(_selectedService);
+    selectedReadCharacteristic =
+        _findMatchingReadCharacteristic(_selectedService);
     if (kDebugMode) {
       print(
-          'flutter_blue_service _findCharacteristicForDeviceId ${selectedCharacteristic?.uuid.toString()} ');
+          'flutter_blue_service _findCharacteristicForDeviceId ${selectedReadCharacteristic?.uuid.toString()} ');
     }
-    return selectedCharacteristic;
+    return selectedReadCharacteristic;
+  }
+
+  Future<BluetoothCharacteristic?> _setWriteCharacteristicForDeviceId(
+      String? deviceId) async {
+    final _device = await _findConnectedDeviceForId(deviceId);
+    final _selectedService =
+        await (_findUuidMatchingService(_device) as FutureOr<BluetoothService>);
+    selectedWriteCharacteristic =
+        _findMatchingWriteCharacteristic(_selectedService);
+    if (kDebugMode) {
+      print(
+          'flutter_blue_service _findCharacteristicForDeviceId ${selectedWriteCharacteristic?.uuid.toString()} ');
+    }
+    return selectedWriteCharacteristic;
   }
 
   Future<BluetoothService?> _findUuidMatchingService(
@@ -354,10 +375,16 @@ class FlutterBluetoothService implements IBleService {
         (service) => _serviceUuidsSet.contains(service.uuid.toString()));
   }
 
-  BluetoothCharacteristic? _findUuidMatchingCharacteristic(
+  BluetoothCharacteristic? _findMatchingReadCharacteristic(
       BluetoothService service) {
     return service.characteristics.firstWhereOrNull((characteristic) =>
-        _characteristicUuidsSet.contains(characteristic.uuid.toString()));
+        _readCharacteristicUuidsSet.contains(characteristic.uuid.toString()));
+  }
+
+  BluetoothCharacteristic? _findMatchingWriteCharacteristic(
+      BluetoothService service) {
+    return service.characteristics.firstWhereOrNull((characteristic) =>
+        _writeCharacteristicUuidsSet.contains(characteristic.uuid.toString()));
   }
 
   writeCharacteristicValue(BluetoothCharacteristic c, List<int> value) async {
@@ -372,7 +399,7 @@ class FlutterBluetoothService implements IBleService {
   @override
   writeValue(List<int> value) async {
     if (await isBluetoothOk()) {
-      var c = selectedCharacteristic!;
+      var c = selectedWriteCharacteristic!;
       if (kDebugMode) {
         print(
             'flutter_blue_service  writeValue() characteristic ${c.uuid.toString()} notification has value ${c.isNotifying} :writing message $value');
@@ -460,6 +487,6 @@ class FlutterBluetoothService implements IBleService {
   @override
   writeToIpaCharacteristics(List<int> value) async {
     await writeToCharacteristics(
-        selectedCharacteristic!.uuid.toString(), value);
+        selectedWriteCharacteristic!.uuid.toString(), value);
   }
 }
