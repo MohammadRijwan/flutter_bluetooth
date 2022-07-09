@@ -29,7 +29,7 @@ class FlutterBluetoothService implements IBleService {
     _readCharacteristicUuidsSet = {};
     _writeCharacteristicUuidsSet = {};
     bleDeviceUuidsList.forEach((bleDeviceUuids) {
-      _serviceGuidsList.add(Guid(bleDeviceUuids.serviceUuid!));
+      _serviceGuidsList.add(Guid(bleDeviceUuids.serviceUuid));
       _serviceUuidsSet.add(bleDeviceUuids.serviceUuid);
       _readCharacteristicUuidsSet.add(bleDeviceUuids.readCharacteristicUuid);
       _writeCharacteristicUuidsSet.add(bleDeviceUuids.writeCharacteristicUuid);
